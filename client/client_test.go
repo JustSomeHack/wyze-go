@@ -7,6 +7,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/JustSomeHack/wyze-go/models"
 )
 
 type config struct {
@@ -107,7 +109,7 @@ func TestNewWyzeClient(t *testing.T) {
 	}
 }
 
-func Test_wyzeClient_GetDevices(t *testing.T) {
+func Test_wyzeClient_getDevices(t *testing.T) {
 	c := loadConfigFile()
 	type fields struct {
 		AuthURL      string
@@ -149,7 +151,63 @@ func Test_wyzeClient_GetDevices(t *testing.T) {
 				RefreshToken: tt.fields.RefreshToken,
 				UserID:       tt.fields.UserID,
 			}
-			s.GetDevices()
+			s.getDevices()
+		})
+	}
+}
+
+func Test_wyzeClient_GetPlugs(t *testing.T) {
+	c := loadConfigFile()
+	type fields struct {
+		AuthURL      string
+		BaseURL      string
+		Email        string
+		Password     string
+		KeyID        string
+		APIKey       string
+		AccessToken  string
+		RefreshToken string
+		UserID       string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    []models.Device
+		wantErr bool
+	}{
+		{
+			name: "Should get plugs",
+			fields: fields{
+				AuthURL:  AuthURL,
+				BaseURL:  BaseURL,
+				Email:    c.WyzeEmail,
+				Password: hashPassword(c.WyzePassword),
+				KeyID:    c.WyzeKey,
+				APIKey:   c.WyzeAPI,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &wyzeClient{
+				AuthURL:      tt.fields.AuthURL,
+				BaseURL:      tt.fields.BaseURL,
+				Email:        tt.fields.Email,
+				Password:     tt.fields.Password,
+				KeyID:        tt.fields.KeyID,
+				APIKey:       tt.fields.APIKey,
+				AccessToken:  tt.fields.AccessToken,
+				RefreshToken: tt.fields.RefreshToken,
+				UserID:       tt.fields.UserID,
+			}
+			got, err := s.GetPlugs()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("wyzeClient.GetPlugs() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("wyzeClient.GetPlugs() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
