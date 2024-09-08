@@ -18,8 +18,8 @@ import (
 type WyzeClient interface {
 	GetCameras() ([]models.Device, error)
 	GetPlugs() ([]models.Device, error)
-	TurnOff(mac string, model string) ([]byte, error)
-	TurnOn(mac string, model string) ([]byte, error)
+	TurnOff(mac string, model string) (string, error)
+	TurnOn(mac string, model string) (string, error)
 }
 
 type wyzeClient struct {
@@ -74,12 +74,41 @@ func (s *wyzeClient) GetPlugs() ([]models.Device, error) {
 	return plugs, nil
 }
 
-func (s *wyzeClient) TurnOff(mac string, model string) ([]byte, error) {
+func (s *wyzeClient) TurnOff(mac string, model string) (string, error) {
 	return s.updateDevice(mac, model, "P3", "0")
 }
 
-func (s *wyzeClient) TurnOn(mac string, model string) ([]byte, error) {
+func (s *wyzeClient) TurnOn(mac string, model string) (string, error) {
 	return s.updateDevice(mac, model, "P3", "1")
+}
+
+func (s *wyzeClient) getDeviceProperties(mac string, model string) ([]models.Property, error) {
+	s.login()
+	data := map[string]string{
+		"sv":                "1df2807c63254e16a06213323fe8dec8",
+		"access_token":      s.AccessToken,
+		"app_name":          "com.hualai",
+		"app_ver":           "com.hualai___2.19.14",
+		"app_version":       "2.19.14",
+		"phone_id":          uuid.New().String(),
+		"phone_system_type": "2",
+		"sc":                "a626948714654991afd3c0dbd7cdb901",
+		"ts":                fmt.Sprintf("%d", (time.Now().UnixMilli() + 10000)),
+		"device_mac":        mac,
+		"device_model":      model,
+	}
+	body, err := s.sendRequest("app/v2/device/get_property_list", data)
+	if err != nil {
+		return nil, err
+	}
+
+	response := new(models.PropertyListResponse)
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Data.PropertyList, nil
 }
 
 func (s *wyzeClient) getDevices() ([]models.Device, error) {
@@ -196,7 +225,7 @@ func (s *wyzeClient) sendRequest(path string, data map[string]string) ([]byte, e
 	return body, err
 }
 
-func (s *wyzeClient) updateDevice(mac string, model string, pid string, pvalue string) ([]byte, error) {
+func (s *wyzeClient) updateDevice(mac string, model string, pid string, pvalue string) (string, error) {
 	s.login()
 	data := map[string]string{
 		"sv":                "44b6d5640c4d4978baba65c8ab9a6d6e",
@@ -215,10 +244,16 @@ func (s *wyzeClient) updateDevice(mac string, model string, pid string, pvalue s
 	}
 	body, err := s.sendRequest("app/v2/device/set_property", data)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return body, nil
+	response := make(map[string]interface{})
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return "", err
+	}
+
+	return response["msg"].(string), nil
 }
 
 func hashPassword(Password string) string {
