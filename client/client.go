@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"time"
 
@@ -97,7 +96,10 @@ func (s *wyzeClient) TurnOn(mac string, model string) (string, error) {
 }
 
 func (s *wyzeClient) getDeviceProperties(mac string, model string) ([]models.Property, error) {
-	s.login()
+	err := s.login()
+	if err != nil {
+		return nil, err
+	}
 	data := map[string]string{
 		"sv":                "1df2807c63254e16a06213323fe8dec8",
 		"access_token":      s.AccessToken,
@@ -126,7 +128,10 @@ func (s *wyzeClient) getDeviceProperties(mac string, model string) ([]models.Pro
 }
 
 func (s *wyzeClient) getDevices() ([]models.Device, error) {
-	s.login()
+	err := s.login()
+	if err != nil {
+		return nil, err
+	}
 	data := map[string]string{
 		"sv":                "c417b62d72ee44bf933054bdca183e77",
 		"access_token":      s.AccessToken,
@@ -152,7 +157,7 @@ func (s *wyzeClient) getDevices() ([]models.Device, error) {
 	return objectResponse.Data.DeviceList, nil
 }
 
-func (s *wyzeClient) login() {
+func (s *wyzeClient) login() (error) {
 	url := fmt.Sprintf("%s/%s", s.AuthURL, "api/user/login")
 	data := map[string]string{
 		"email":    s.Email,
@@ -161,11 +166,11 @@ func (s *wyzeClient) login() {
 	}
 	requestData, err := json.Marshal(data)
 	if err != nil {
-		log.Fatal(err)
+		return  err
 	}
 	request, err := http.NewRequest("POST", url, bytes.NewReader(requestData))
 	if err != nil {
-		log.Fatal(err)
+		return  err
 	}
 
 	hash := hmac.New(md5.New, []byte{})
@@ -185,26 +190,28 @@ func (s *wyzeClient) login() {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
-		log.Fatal(err)
+		return  err
 	}
 	if response.StatusCode != 200 {
-		log.Fatalln("failed to authenticate to API")
+		return fmt.Errorf("failed with code %s", response.Status)
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		log.Fatal(err)
+		return  err
 	}
 
 	result := map[string]string{}
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		log.Fatal(err)
+		return  err
 	}
 
 	s.AccessToken = result["access_token"]
 	s.RefreshToken = result["refresh_token"]
 	s.UserID = result["user_id"]
+
+	return nil
 }
 
 func (s *wyzeClient) sendRequest(path string, data map[string]string) ([]byte, error) {
@@ -240,7 +247,10 @@ func (s *wyzeClient) sendRequest(path string, data map[string]string) ([]byte, e
 }
 
 func (s *wyzeClient) updateDevice(mac string, model string, pid string, pvalue string) (string, error) {
-	s.login()
+	err := s.login()
+	if err != nil {
+		return "", err
+	}
 	data := map[string]string{
 		"sv":                "44b6d5640c4d4978baba65c8ab9a6d6e",
 		"access_token":      s.AccessToken,
