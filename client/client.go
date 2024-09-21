@@ -18,6 +18,7 @@ import (
 type WyzeClient interface {
 	GetCameras() ([]models.Device, error)
 	GetPlugs() ([]models.Device, error)
+	GetStatus(mac string, model string) (string, error)
 	TurnOff(mac string, model string) (string, error)
 	TurnOn(mac string, model string) (string, error)
 }
@@ -72,6 +73,19 @@ func (s *wyzeClient) GetPlugs() ([]models.Device, error) {
 		}
 	}
 	return plugs, nil
+}
+
+func (s *wyzeClient) GetStatus(mac string, model string) (string, error) {
+	properties, err := s.getDeviceProperties(mac, model)
+	if err != nil {
+		return "", err
+	}
+	for _, property := range properties {
+		if property.PID == "P3" {
+			return property.Value, nil
+		}
+	}
+	return "", fmt.Errorf("no status found")
 }
 
 func (s *wyzeClient) TurnOff(mac string, model string) (string, error) {
